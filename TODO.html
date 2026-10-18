@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>商业级敏捷项目管理看板</title>
+  <style>
+    /* ==========================================================================
+       1. 现代化深色主题风格与 CSS 变量声明 (Linear / Tailwind CSS inspired)
+       ========================================================================== */
+    :root {
+      --bg-dark: #0f172a;
+      --bg-sidebar: #1e293b;
+      --bg-card: #334155;
+      --bg-input: #0f172a;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --border-color: #475569;
+      --accent-color: #3b82f6;
+      --accent-hover: #2563eb;
+      
+      /* 优先级语义色彩 */
+      --priority-high-bg: rgba(239, 68, 68, 0.2);
+      --priority-high-text: #fca5a5;
+      --priority-high-border: #ef4444;
+      
+      --priority-med-bg: rgba(245, 158, 11, 0.2);
+      --priority-med-text: #fcd34d;
+      --priority-med-border: #f59e0b;
+      
+      --priority-low-bg: rgba(16, 185, 129, 0.2);
+      --priority-low-text: #6ee7b7;
+      --priority-low-border: #10b981;
+
+      --danger-color: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ==========================================================================
+       2. 双栏分屏响应式布局
+       ========================================================================== */
+    /* 左侧：项目管理器 Sidebar */
+    .sidebar {
+      width: 280px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #38bdf8;
+    }
+
+    .project-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .project-form input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .btn {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .project-list {
+      list-style: none;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .project-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 6px;
+      background: transparent;
+      transition: background 0.2s;
+      color: var(--text-muted);
+    }
+
+    .project-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+    }
+
+    .project-item.active {
+      background: var(--accent-color);
+      color: white;
+    }
+
+    .project-item .btn-del-proj {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 1rem;
+      display: none;
+    }
+
+    .project-item:hover .btn-del-proj {
+      display: block;
+    }
+
+    .project-item .btn-del-proj:hover {
+      color: var(--danger-color);
+    }
+
+    /* 右侧：主工作区 Main Content */
+    .main-workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 30px;
+      gap: 24px;
+    }
+
+    /* ==========================================================================
+       3. 统计看板与进度条
+       ========================================================================== */
+    .dashboard-header {
+      background: var(--bg-sidebar);
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .project-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    .progress-container {
+      margin-bottom: 20px;
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      color: var(--text-muted);
+    }
+
+    .progress-bar-bg {
+      height: 10px;
+      background: var(--bg-input);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b82f6, #10b981);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .stats-cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: var(--bg-dark);
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .stat-card .val {
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .stat-card.overdue .val { color: var(--danger-color); }
+    .stat-card.urgent .val { color: #f59e0b; }
+    .stat-card.today .val { color: #38bdf8; }
+
+    /* ==========================================================================
+       4. 任务创建表单
+       ========================================================================== */
+    .task-form {
+      display: flex;
+      gap: 12px;
+      background: var(--bg-sidebar);
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      align-items: center;
+    }
+
+    .task-form input, .task-form select {
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .task-form input[type="text"] { flex: 2; }
+    .task-form select, .task-form input[type="date"] { flex: 1; }
+
+    /* ==========================================================================
+       5. 原生 HTML5 看板列与任务卡片
+       ========================================================================== */
+    .kanban-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      flex: 1;
+      align-items: start;
+    }
+
+    .kanban-column {
+      background: var(--bg-sidebar);
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      padding: 16px;
+      min-height: 400px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .column-header {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .task-list {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 200px; /* 确保空列也可拖入 */
+    }
+
+    /* Dragover 放置高亮视觉反馈 */
+    .kanban-column.drag-over {
+      background: rgba(59, 130, 246, 0.1);
+      border-style: dashed;
+    }
+
+    .task-card {
+      background: var(--bg-card);
+      border-radius: 8px;
+      padding: 14px;
+      border: 1px solid var(--border-color);
+      cursor: grab;
+      position: relative;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .task-card:active { cursor: grabbing; }
+
+    .task-card.dragging {
+      opacity: 0.4;
+    }
+
+    .task-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    }
+
+    .task-title {
+      font-weight: 600;
+      word-break: break-all;
+      flex: 1;
+      padding-right: 8px;
+    }
+
+    .task-title-input {
+      background: var(--bg-input);
+      border: 1px solid var(--accent-color);
+      color: var(--text-main);
+      padding: 4px 6px;
+      border-radius: 4px;
+      width: 100%;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      border: 1px solid transparent;
+    }
+
+    .badge-high {
+      background: var(--priority-high-bg);
+      color: var(--priority-high-text);
+      border-color: var(--priority-high-border);
+    }
+
+    .badge-med {
+      background: var(--priority-med-bg);
+      color: var(--priority-med-text);
+      border-color: var(--priority-med-border);
+    }
+
+    .badge-low {
+      background: var(--priority-low-bg);
+      color: var(--priority-low-text);
+      border-color: var(--priority-low-border);
+    }
+
+    .task-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 10px;
+    }
+
+    /* 延期与到期预警样式 */
+    .date-tag {
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* 亮红色呼吸灯预警 */
+    .date-tag.overdue {
+      background: rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      border: 1px solid var(--danger-color);
+      animation: pulse 1.8s infinite;
+    }
+
+    .date-tag.due-today {
+      background: rgba(56, 189, 248, 0.2);
+      color: #38bdf8;
+      border: 1px solid #38bdf8;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+      70% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+
+    .btn-del-task {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .btn-del-task:hover { color: var(--danger-color); }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 左侧：项目空间管理器 -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      📌 项目空间列表
+    </div>
+    <form class="project-form" id="createProjectForm">
+      <input type="text" id="newProjectName" placeholder="新建项目名称..." required autocomplete="off">
+      <button type="submit" class="btn">+</button>
+    </form>
+    <ul class="project-list" id="projectList"></ul>
+  </aside>
+
+  <!-- 2. 右侧：主工作区 -->
+  <main class="main-workspace">
+    <!-- 顶部统计看板与进度条 -->
+    <header class="dashboard-header">
+      <h1 class="project-title" id="currentProjectTitle">默认项目</h1>
+      
+      <div class="progress-container">
+        <div class="progress-info">
+          <span>项目整体完成度</span>
+          <span id="progressPercentText">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+      </div>
+
+      <div class="stats-cards">
+        <div class="stat-card overdue">
+          <div class="label">已延期任务</div>
+          <div class="val" id="statOverdue">0</div>
+        </div>
+        <div class="stat-card urgent">
+          <div class="label">紧急高优任务</div>
+          <div class="val" id="statHighPriority">0</div>
+        </div>
+        <div class="stat-card today">
+          <div class="label">今日到期任务</div>
+          <div class="val" id="statDueToday">0</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 复合多维任务表单 -->
+    <form class="task-form" id="createTaskForm">
+      <input type="text" id="taskTitleInput" placeholder="请输入任务描述..." required autocomplete="off">
+      <select id="taskPrioritySelect">
+        <option value="high">高优 🔴</option>
+        <option value="medium" selected>中优 🟡</option>
+        <option value="low">低优 🟢</option>
+      </select>
+      <input type="date" id="taskDueDateInput" required>
+      <button type="submit" class="btn">指派任务</button>
+    </form>
+
+    <!-- 3. HTML5 看板 -->
+    <section class="kanban-board">
+      <div class="kanban-column" data-status="todo">
+        <div class="column-header">
+          <span>📋 待处理</span>
+          <span class="badge" id="countTodo">0</span>
+        </div>
+        <div class="task-list" id="listTodo"></div>
+      </div>
+
+      <div class="kanban-column" data-status="doing">
+        <div class="column-header">
+          <span>⚡ 进行中</span>
+          <span class="badge" id="countDoing">0</span>
+        </div>
+        <div class="task-list" id="listDoing"></div>
+      </div>
+
+      <div class="kanban-column" data-status="done">
+        <div class="column-header">
+          <span>✅ 已归档</span>
+          <span class="badge" id="countDone">0</span>
+        </div>
+        <div class="task-list" id="listDone"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /* ==========================================================================
+       核心逻辑：全局状态管理 (Store) & 数据驱动范式
+       ========================================================================== */
+    const STORAGE_KEY = 'AGILE_KANBAN_STORE_V1';
+
+    // 初始化全局 Store
+    let store = {
+      projects: [
+        { id: 'proj-default', name: '默认项目', isDefault: true }
+      ],
+      activeProjectId: 'proj-default',
+      tasks: [
+        // 预设样例数据，展示预警效果
+        { 
+          id: 'task-1', 
+          projectId: 'proj-default', 
+          title: '完成系统架构设计', 
+          priority: 'high', 
+          dueDate: getOffsetDate(-2), 
+          status: 'todo' 
+        },
+        { 
+          id: 'task-2', 
+          projectId: 'proj-default', 
+          title: '前端看板模块开发', 
+          priority: 'medium', 
+          dueDate: getOffsetDate(0), 
+          status: 'doing' 
+        }
+      ]
+    };
+
+    // 辅助函数：获取相对日期 YYYY-MM-DD
+    function getOffsetDate(offsetDays) {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      return d.toISOString().split('T')[0];
+    }
+
+    // 从 LocalStorage 加载数据
+    function loadStore() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          store = JSON.parse(saved);
+        } catch (e) {
+          console.error("加载数据失败，使用初始化状态", e);
+        }
+      }
+    }
+
+    // 持久化并重绘 (Data -> Storage -> Render)
+    function saveAndRender() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
+      render();
+    }
+
+    /* ==========================================================================
+       UI 统一渲染函数 (Render Engine)
+       ========================================================================== */
+    function render() {
+      renderProjects();
+      renderDashboardAndTasks();
+    }
+
+    // 1. 渲染左侧项目列表
+    function renderProjects() {
+      const projectListEl = document.getElementById('projectList');
+      projectListEl.innerHTML = '';
+
+      store.projects.forEach(proj => {
+        const li = document.createElement('li');
+        li.className = `project-item ${proj.id === store.activeProjectId ? 'active' : ''}`;
+        li.dataset.id = proj.id;
+        
+        li.innerHTML = `
+          <span>${escapeHtml(proj.name)}</span>
+          ${!proj.isDefault ? `<button class="btn-del-proj" title="删除项目">✕</button>` : ''}
+        `;
+
+        // 切换当前项目
+        li.addEventListener('click', (e) => {
+          if (e.target.classList.contains('btn-del-proj')) return;
+          store.activeProjectId = proj.id;
+          saveAndRender();
+        });
+
+        // 删除自定义项目
+        if (!proj.isDefault) {
+          const delBtn = li.querySelector('.btn-del-proj');
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`确定要删除项目“${proj.name}”吗？其名下的所有任务也将被清除。`)) {
+              deleteProject(proj.id);
+            }
+          });
+        }
+
+        projectListEl.appendChild(li);
+      });
+    }
+
+    // 2. 渲染主工作区（统计数据 + 任务排序 + 看板列表）
+    function renderDashboardAndTasks() {
+      const activeProj = store.projects.find(p => p.id === store.activeProjectId) || store.projects[0];
+      document.getElementById('currentProjectTitle').innerText = activeProj.name;
+
+      // 筛选当前项目的任务
+      const currentTasks = store.tasks.filter(t => t.projectId === store.activeProjectId);
+
+      // 计算统计卡片数据
+      const todayStr = getOffsetDate(0);
+      let overdueCount = 0;
+      let highPriorityCount = 0;
+      let dueTodayCount = 0;
+      let doneCount = 0;
+
+      currentTasks.forEach(task => {
+        if (task.status === 'done') {
+          doneCount++;
+        } else {
+          // 只有未完成任务计算延期和今日到期
+          if (task.dueDate < todayStr) overdueCount++;
+          if (task.dueDate === todayStr) dueTodayCount++;
+        }
+        if (task.priority === 'high') highPriorityCount++;
+      });
+
+      // 更新顶部统计与进度条
+      const totalTasks = currentTasks.length;
+      const percent = totalTasks === 0 ? 0 : Math.round((doneCount / totalTasks) * 100);
+      document.getElementById('progressBarFill').style.width = `${percent}%`;
+      document.getElementById('progressPercentText').innerText = `${percent}% (${doneCount}/${totalTasks})`;
+
+      document.getElementById('statOverdue').innerText = overdueCount;
+      document.getElementById('statHighPriority').innerText = highPriorityCount;
+      document.getElementById('statDueToday').innerText = dueTodayCount;
+
+      // 智能复合排序逻辑
+      // 规则：截止日期由近到远 -> 优先级由高到低 (high > medium > low)
+      const priorityWeight = { high: 3, medium: 2, low: 1 };
+      
+      const sortedTasks = [...currentTasks].sort((a, b) => {
+        if (a.dueDate !== b.dueDate) {
+          return a.dueDate.localeCompare(b.dueDate);
+        }
+        return priorityWeight[b.priority] - priorityWeight[a.priority];
+      });
+
+      // 清空看板列表容器
+      const lists = {
+        todo: document.getElementById('listTodo'),
+        doing: document.getElementById('listDoing'),
+        done: document.getElementById('listDone')
+      };
+      
+      Object.values(lists).forEach(el => el.innerHTML = '');
+
+      // 分发渲染卡片
+      const counts = { todo: 0, doing: 0, done: 0 };
+
+      sortedTasks.forEach(task => {
+        counts[task.status]++;
+        const card = createTaskCardDOM(task, todayStr);
+        if (lists[task.status]) {
+          lists[task.status].appendChild(card);
+        }
+      });
+
+      // 更新看板列数字 Badge
+      document.getElementById('countTodo').innerText = counts.todo;
+      document.getElementById('countDoing').innerText = counts.doing;
+      document.getElementById('countDone').innerText = counts.done;
+    }
+
+    // 3. 构建单张任务卡片 DOM 及交互绑定
+    function createTaskCardDOM(task, todayStr) {
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.draggable = true;
+      card.dataset.id = task.id;
+
+      // 计算延期天数与预警文本
+      let dateBadgeClass = 'date-tag';
+      let dateDisplayText = task.dueDate;
+
+      if (task.status !== 'done') {
+        if (task.dueDate < todayStr) {
+          dateBadgeClass += ' overdue';
+          const diffDays = calculateDaysDiff(task.dueDate, todayStr);
+          dateDisplayText = `已延期 ${diffDays} 天 (${task.dueDate})`;
+        } else if (task.dueDate === todayStr) {
+          dateBadgeClass += ' due-today';
+          dateDisplayText = `今日到期`;
+        }
+      }
+
+      const priorityMap = {
+        high: { text: '高优', class: 'badge-high' },
+        medium: { text: '中优', class: 'badge-med' },
+        low: { text: '低优', class: 'badge-low' }
+      };
+
+      card.innerHTML = `
+        <div class="task-card-header">
+          <div class="task-title" title="双击可编辑">${escapeHtml(task.title)}</div>
+          <span class="badge ${priorityMap[task.priority].class}">${priorityMap[task.priority].text}</span>
+        </div>
+        <div class="task-footer">
+          <span class="${dateBadgeClass}">📅 ${dateDisplayText}</span>
+          <button class="btn-del-task" title="删除任务">🗑️</button>
+        </div>
+      `;
+
+      // HTML5 原生 Drag and Drop 事件绑定
+      card.addEventListener('dragstart', (e) => {
+        card.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', task.id);
+        e.dataTransfer.effectAllowed = 'move';
+      });
+
+      card.addEventListener('dragend', () => {
+        card.classList.remove('dragging');
+      });
+
+      // 双击标题内联修改逻辑
+      const titleEl = card.querySelector('.task-title');
+      titleEl.addEventListener('dblclick', () => {
+        makeTitleEditable(titleEl, task);
+      });
+
+      // 删除任务逻辑
+      card.querySelector('.btn-del-task').addEventListener('click', () => {
+        deleteTask(task.id);
+      });
+
+      return card;
+    }
+
+    // 标题双击内联编辑函数
+    function makeTitleEditable(titleEl, task) {
+      const currentTitle = task.title;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'task-title-input';
+      input.value = currentTitle;
+
+      titleEl.replaceWith(input);
+      input.focus();
+
+      // 保存修改的闭包处理
+      let hasSaved = false;
+      const saveChange = () => {
+        if (hasSaved) return;
+        hasSaved = true;
+        const newTitle = input.value.trim();
+        if (newTitle && newTitle !== currentTitle) {
+          task.title = newTitle;
+          saveAndRender();
+        } else {
+          render(); // 恢复原状
+        }
+      };
+
+      input.addEventListener('blur', saveChange);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') saveChange();
+        if (e.key === 'Escape') {
+          hasSaved = true;
+          render();
+        }
+      });
+    }
+
+    /* ==========================================================================
+       业务操作与数据变更逻辑
+       ========================================================================== */
+    // 删除项目
+    function deleteProject(projId) {
+      store.projects = store.projects.filter(p => p.id !== projId);
+      store.tasks = store.tasks.filter(t => t.projectId !== projId);
+      if (store.activeProjectId === projId) {
+        store.activeProjectId = 'proj-default';
+      }
+      saveAndRender();
+    }
+
+    // 删除任务
+    function deleteTask(taskId) {
+      store.tasks = store.tasks.filter(t => t.id !== taskId);
+      saveAndRender();
+    }
+
+    // 计算日期差值天数
+    function calculateDaysDiff(dateStr1, dateStr2) {
+      const d1 = new Date(dateStr1);
+      const d2 = new Date(dateStr2);
+      const diffTime = Math.abs(d2 - d1);
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    // HTML 转义，防止 XSS 注入
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+
+    /* ==========================================================================
+       DOM 事件监听初始化
+       ========================================================================== */
+    document.addEventListener('DOMContentLoaded', () => {
+      loadStore();
+
+      // 初始化默认日期输入框为今日
+      const dueDateInput = document.getElementById('taskDueDateInput');
+      dueDateInput.value = getOffsetDate(0);
+
+      // 新建项目表单提交
+      document.getElementById('createProjectForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const input = document.getElementById('newProjectName');
+        const name = input.value.trim();
+        if (name) {
+          const newProj = {
+            id: 'proj-' + Date.now(),
+            name: name,
+            isDefault: false
+          };
+          store.projects.push(newProj);
+          store.activeProjectId = newProj.id;
+          input.value = '';
+          saveAndRender();
+        }
+      });
+
+      // 新建任务表单提交
+      document.getElementById('createTaskForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const titleInput = document.getElementById('taskTitleInput');
+        const prioritySelect = document.getElementById('taskPrioritySelect');
+        const dueDate = dueDateInput.value;
+
+        const title = titleInput.value.trim();
+        if (title && dueDate) {
+          const newTask = {
+            id: 'task-' + Date.now(),
+            projectId: store.activeProjectId,
+            title: title,
+            priority: prioritySelect.value,
+            dueDate: dueDate,
+            status: 'todo' // 默认待处理
+          };
+          store.tasks.push(newTask);
+          titleInput.value = '';
+          prioritySelect.value = 'medium';
+          dueDateInput.value = getOffsetDate(0);
+          saveAndRender();
+        }
+      });
+
+      // 看板列原生 Drag & Drop 事件配置
+      const columns = document.querySelectorAll('.kanban-column');
+      columns.forEach(col => {
+        col.addEventListener('dragover', (e) => {
+          e.preventDefault(); // 允许放置
+          e.dataTransfer.dropEffect = 'move';
+          col.classList.add('drag-over');
+        });
+
+        col.addEventListener('dragleave', () => {
+          col.classList.remove('drag-over');
+        });
+
+        col.addEventListener('drop', (e) => {
+          e.preventDefault();
+          col.classList.remove('drag-over');
+          
+          const taskId = e.dataTransfer.getData('text/plain');
+          const targetStatus = col.dataset.status;
+
+          const task = store.tasks.find(t => t.id === taskId);
+          if (task && task.status !== targetStatus) {
+            task.status = targetStatus;
+            saveAndRender();
+          }
+        });
+      });
+
+      // 首次渲染
+      render();
+    });
+  </script>
+</body>
+</html>

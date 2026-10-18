@@ -1,0 +1,4 @@
+customtkinter>=5.2.0
+zeroconf>=0.131.0
+cx_Freeze>=7.0.0 ; sys_platform == "win32"
+pillow>=10.0.0 ; sys_platform == "win32"
